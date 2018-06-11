@@ -19,6 +19,10 @@ import * as functions from 'firebase-functions'
 const gcs = require('@google-cloud/storage')();
 const vision = require('@google-cloud/vision');
 
+// The Firebase Admin SDK
+const admin = require('firebase-admin');
+admin.initializeApp();
+
 // Creates a client
 const client = new vision.ImageAnnotatorClient();
 
@@ -31,16 +35,24 @@ const client = new vision.ImageAnnotatorClient();
 //    cd functions
 //    npm run deploy
 
+function addPhotoData(object, labels) {
+  const photoColl = admin.firestore().collection('photos');
+  const docRef = photoColl.doc();
+  const data = {};
+  return admin.firestore().collection('photos').add(data).then((writeResult) => {
+    // Send back a message that we've succesfully written the message
+    return {result: `Message with ID: ${writeResult.id} added.`};
+  });
+}
+
 export const tagImage = functions.storage.object().onFinalize((object) => {
-  // object.bucket
   const bucketName = gcs.bucket(object.bucket).name;
   const path = `gs://${bucketName}/${object.name}`
-  console.log('path', path);
+
   return client.labelDetection(path)
         .then(results => {
           const labels = results[0].labelAnnotations;
-          console.log('Labels:');
-          labels.forEach(label => console.log(label));
+          return addPhotoData(object, labels);
         })
         .catch(err => {
           console.error('ERROR:', err);
