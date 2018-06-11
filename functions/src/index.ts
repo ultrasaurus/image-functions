@@ -16,6 +16,11 @@
 'use strict';
 
 import * as functions from 'firebase-functions'
+const gcs = require('@google-cloud/storage')();
+const vision = require('@google-cloud/vision');
+
+// Creates a client
+const client = new vision.ImageAnnotatorClient();
 
 // if you need to use the Firebase Admin SDK, uncomment the following:
 // import * as admin from 'firebase-admin'
@@ -26,6 +31,22 @@ import * as functions from 'firebase-functions'
 //    cd functions
 //    npm run deploy
 
-export const helloWorld = functions.https.onRequest((request, response) => {
- response.send('Hello from Firebase!\n\n');
+export const tagImage = functions.storage.object().onFinalize((object) => {
+  // object.bucket
+  const bucketName = gcs.bucket(object.bucket).name;
+  const path = `gs://${bucketName}/${object.name}`
+  console.log('path', path);
+  return client.labelDetection(path)
+        .then(results => {
+          const labels = results[0].labelAnnotations;
+          console.log('Labels:');
+          labels.forEach(label => console.log(label));
+        })
+        .catch(err => {
+          console.error('ERROR:', err);
+        });
 });
+
+// export const helloWorld = functions.https.onRequest((request, response) => {
+//  response.send('Hello from Firebase!\n\n');
+// });
